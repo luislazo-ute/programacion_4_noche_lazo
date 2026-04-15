@@ -28,3 +28,25 @@ fun main() {
         }
     }
 }
+
+
+/*
+ejercicio
+fun main() {
+
+    println("Ingrese la contraseña")
+    var input: String
+
+    while (true) {
+        println("Escribe la contraseña correcta para acceder:")
+        input = readLine()?.trim() ?: ""
+
+        if (input == "1234") {
+            println("Acceso permitido")
+            break
+        } else {
+            println("Contraseña incorrecta")
+        }
+    }
+}
+*/
