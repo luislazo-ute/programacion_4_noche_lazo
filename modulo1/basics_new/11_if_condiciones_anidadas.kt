@@ -1,0 +1,52 @@
+fun main() {
+    println("If con condiciones anidadas")
+    println("¿El paciente tiene antecedentes cardiacos? s/n")
+
+    val tieneAntecedente = readLine()?.trim()?.lowercase() == "s"
+
+    println("Frecuencia cardiaca lpm:")
+    val frecuencia = readLine()?.toIntOrNull() ?: 0
+
+    if (tieneAntecedente) {
+        println("Paciente con antecedentes cardiacos")
+
+        if (frecuencia < 50) {
+            println("Bradicardia")
+        } else if (frecuencia > 100) {
+            println("Taquicardia")
+        } else {
+            println("Frecuencia dentro del rango")
+        }
+
+    } else {
+        println("Paciente sin antecedentes cardiacos")
+
+        if (frecuencia < 60 || frecuencia > 100) {
+            println("Frecuencia fuera de lo normal")
+        } else {
+            println("Frecuencia cardiaca normal")
+        }
+    }
+}
+
+
+/*
+ejercicio
+fun main() {
+
+    println("Ingrese la contraseña")
+    var input: String
+
+    while (true) {
+        println("Escribe la contraseña correcta para acceder:")
+        input = readLine()?.trim() ?: ""
+
+        if (input == "1234") {
+            println("Acceso permitido")
+            break
+        } else {
+            println("Contraseña incorrecta")
+        }
+    }
+}
+*/
