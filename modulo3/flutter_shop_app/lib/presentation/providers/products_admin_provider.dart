@@ -37,8 +37,8 @@ class ProductsAdminState {
   });
 
   List<Product> get filtered => products.where((p) {
-        final matchSearch =
-            search.isEmpty || p.name.toLowerCase().contains(search.toLowerCase());
+        final matchSearch = search.isEmpty ||
+            p.name.toLowerCase().contains(search.toLowerCase());
         final matchFilter = switch (stockFilter) {
           ProductStockFilter.all => true,
           ProductStockFilter.inStock => p.stock > 0,

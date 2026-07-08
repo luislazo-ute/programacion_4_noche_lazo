@@ -98,8 +98,7 @@ class OrdersAdminNotifier extends StateNotifier<OrdersAdminState> {
   void refresh() => load();
 
   Future<void> changeStatus(int orderId, OrderStatus newStatus) async {
-    final prevStatus =
-        state.orders.firstWhere((o) => o.id == orderId).status;
+    final prevStatus = state.orders.firstWhere((o) => o.id == orderId).status;
 
     state = state.copyWith(
       orders: state.orders
