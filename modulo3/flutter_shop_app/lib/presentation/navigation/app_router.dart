@@ -8,8 +8,10 @@ import '../../domain/model/auth_state.dart';
 import '../providers/auth_provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
+import '../screens/cart/cart_screen.dart';
 import '../screens/catalog/catalog_screen.dart';
 import '../screens/catalog/home_screen.dart';
+import '../screens/catalog/product_detail_screen.dart';
 import 'public_shell.dart';
 
 class _PlaceholderScreen extends ConsumerWidget {
@@ -88,14 +90,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const CatalogScreen(),
           ),
           GoRoute(
-            path: '/catalog/:id',
-            builder: (_, s) => _PlaceholderScreen(
-              'Detalle #${s.pathParameters['id']} — M5',
-            ),
-          ),
-          GoRoute(
             path: '/cart',
-            builder: (_, __) => const _PlaceholderScreen('Carrito — M5'),
+            builder: (_, __) => const CartScreen(),
           ),
           GoRoute(
             path: '/orders',
@@ -112,6 +108,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const _PlaceholderScreen('Perfil — M6'),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/catalog/:id',
+        builder: (_, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ProductDetailScreen(productId: id);
+        },
       ),
       GoRoute(
         path: '/admin',
