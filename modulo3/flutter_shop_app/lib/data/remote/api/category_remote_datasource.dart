@@ -8,7 +8,11 @@ import '../../../domain/model/category.dart';
 import 'dio_client.dart';
 
 abstract class CategoryRemoteDatasource {
-  Future<List<Category>> getCategories();
+  Future<List<Category>> getCategories({int page, int pageSize});
+  Future<PaginatedCategories> getCategoriesPaginated({
+    int page,
+    int pageSize,
+  });
   Future<Category> getCategory(int id);
   Future<Category> createCategory(Map<String, dynamic> payload);
   Future<Category> updateCategory(int id, Map<String, dynamic> payload);
@@ -22,13 +26,23 @@ class CategoryRemoteDatasourceImpl implements CategoryRemoteDatasource {
   CategoryRemoteDatasourceImpl(this._dio);
 
   @override
-  Future<List<Category>> getCategories() async {
+  Future<List<Category>> getCategories(
+      {int page = 1, int pageSize = 100}) async {
+    final result = await getCategoriesPaginated(page: page, pageSize: pageSize);
+    return result.results;
+  }
+
+  @override
+  Future<PaginatedCategories> getCategoriesPaginated({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     try {
-      final res = await _dio.get('/categories/');
-      final data = res.data as Map<String, dynamic>;
-      return (data['results'] as List)
-          .map((e) => Category.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final res = await _dio.get(
+        '/categories/',
+        queryParameters: {'page': page, 'page_size': pageSize},
+      );
+      return PaginatedCategories.fromJson(res.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
