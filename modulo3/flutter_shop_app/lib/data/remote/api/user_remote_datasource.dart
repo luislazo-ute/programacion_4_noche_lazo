@@ -32,6 +32,8 @@ abstract class UserRemoteDatasource {
     String? search,
     bool? isStaff,
     bool? isActive,
+    int page,
+    int pageSize,
   });
 
   Future<User> createUser(Map<String, dynamic> payload);
@@ -51,9 +53,13 @@ class UserRemoteDatasourceImpl implements UserRemoteDatasource {
     String? search,
     bool? isStaff,
     bool? isActive,
+    int page = 1,
+    int pageSize = 20,
   }) async {
     try {
       final params = <String, dynamic>{
+        'page': page,
+        'page_size': pageSize,
         if (search != null) 'search': search,
         if (isStaff != null) 'is_staff': isStaff,
         if (isActive != null) 'is_active': isActive,

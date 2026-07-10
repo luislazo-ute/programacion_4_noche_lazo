@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/image_upload_provider.dart';
+import '../../providers/profile_provider.dart';
+import '../../widgets/user_avatar.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -13,7 +16,27 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final profileAsync = ref.watch(profileProvider);
+    final uploadState = ref.watch(imageUploadProvider);
     final tt = Theme.of(context).textTheme;
+
+    ref.listen<ImageUploadState>(imageUploadProvider, (_, next) {
+      if (next is ImageUploadSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Avatar actualizado correctamente.')),
+        );
+        ref.invalidate(profileProvider);
+        ref.read(imageUploadProvider.notifier).reset();
+      } else if (next is ImageUploadError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        ref.read(imageUploadProvider.notifier).reset();
+      }
+    });
 
     return Scaffold(
       body: SafeArea(
@@ -22,29 +45,22 @@ class ProfileScreen extends ConsumerWidget {
           child: Column(
             children: [
               const SizedBox(height: 24),
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.accent, AppColors.accentLight],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  UserAvatar(
+                    avatarUrl: profileAsync.valueOrNull?.avatarUrl,
+                    username: user?.username,
+                    radius: 40,
+                    onTap: uploadState is ImageUploadLoading
+                        ? null
+                        : () => ref
+                            .read(imageUploadProvider.notifier)
+                            .pickAndUploadAvatar(),
                   ),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    (user?.username.isNotEmpty == true)
-                        ? user!.username[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: AppColors.onAccent,
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                  if (uploadState is ImageUploadLoading)
+                    const CircularProgressIndicator(),
+                ],
               ),
               const SizedBox(height: 16),
               Text(user?.username ?? '—', style: tt.headlineMedium),

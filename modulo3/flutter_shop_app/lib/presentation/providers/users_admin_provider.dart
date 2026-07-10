@@ -42,8 +42,11 @@ class UserFormError extends UserFormState {
 class UsersAdminState {
   final List<User> users;
   final bool isLoading;
+  final bool isLoadingMore;
   final String? error;
   final int total;
+  final bool hasMore;
+  final int page;
   final String search;
   final UserRoleFilter roleFilter;
   final UserFormState formState;
@@ -51,8 +54,11 @@ class UsersAdminState {
   const UsersAdminState({
     this.users = const [],
     this.isLoading = false,
+    this.isLoadingMore = false,
     this.error,
     this.total = 0,
+    this.hasMore = false,
+    this.page = 1,
     this.search = '',
     this.roleFilter = UserRoleFilter.all,
     this.formState = const UserFormIdle(),
@@ -76,8 +82,11 @@ class UsersAdminState {
   UsersAdminState copyWith({
     List<User>? users,
     bool? isLoading,
+    bool? isLoadingMore,
     String? error,
     int? total,
+    bool? hasMore,
+    int? page,
     String? search,
     UserRoleFilter? roleFilter,
     UserFormState? formState,
@@ -85,8 +94,11 @@ class UsersAdminState {
       UsersAdminState(
         users: users ?? this.users,
         isLoading: isLoading ?? this.isLoading,
+        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
         error: error,
         total: total ?? this.total,
+        hasMore: hasMore ?? this.hasMore,
+        page: page ?? this.page,
         search: search ?? this.search,
         roleFilter: roleFilter ?? this.roleFilter,
         formState: formState ?? this.formState,
@@ -100,22 +112,43 @@ class UsersAdminNotifier extends StateNotifier<UsersAdminState> {
     load();
   }
 
-  Future<void> load() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> load({bool reset = true}) async {
+    final s = state;
+    final page = reset ? 1 : s.page;
+
+    if (reset) {
+      state = s.copyWith(
+        isLoading: true,
+        isLoadingMore: false,
+        error: null,
+        page: 1,
+      );
+    } else {
+      if (s.isLoading || s.isLoadingMore || !s.hasMore) return;
+      state = s.copyWith(isLoadingMore: true, error: null);
+    }
+
     try {
-      final result = await _datasource.getUsers();
+      final result = await _datasource.getUsers(page: page, pageSize: 20);
       state = state.copyWith(
-        users: result.results,
+        users: reset ? result.results : [...state.users, ...result.results],
         total: result.count,
+        hasMore: result.next != null,
+        page: page + 1,
         isLoading: false,
+        isLoadingMore: false,
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        isLoadingMore: false,
         error: e.toString().replaceAll('Exception: ', ''),
       );
     }
   }
+
+  void loadMore() => load(reset: false);
+  void refresh() => load();
 
   void setSearch(String q) => state = state.copyWith(search: q);
   void setRoleFilter(UserRoleFilter f) => state = state.copyWith(roleFilter: f);
@@ -206,7 +239,7 @@ class UsersAdminNotifier extends StateNotifier<UsersAdminState> {
       await _datasource.deleteUser(id);
       state = state.copyWith(
         users: state.users.where((u) => u.id != id).toList(),
-        total: state.total - 1,
+        total: state.total > 0 ? state.total - 1 : 0,
       );
     } catch (e) {
       state = state.copyWith(error: e.toString().replaceAll('Exception: ', ''));

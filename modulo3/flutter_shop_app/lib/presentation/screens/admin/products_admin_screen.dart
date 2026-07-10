@@ -1,6 +1,5 @@
 // lib/presentation/screens/admin/products_admin_screen.dart
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,8 +8,10 @@ import '../../../data/repository/category_repository_impl.dart';
 import '../../../domain/model/category.dart';
 import '../../../domain/model/product.dart';
 import '../../../theme/app_colors.dart';
+import '../../providers/image_upload_provider.dart';
 import '../../providers/products_admin_provider.dart';
 import '../../widgets/product_form.dart';
+import '../../widgets/product_image.dart';
 import '../../widgets/restock_dialog.dart';
 
 class ProductsAdminScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class ProductsAdminScreen extends ConsumerStatefulWidget {
 
 class _ProductsAdminScreenState extends ConsumerState<ProductsAdminScreen> {
   List<Category> _categories = [];
+  int? _uploadingProductId;
 
   @override
   void initState() {
@@ -36,6 +38,27 @@ class _ProductsAdminScreenState extends ConsumerState<ProductsAdminScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(productsAdminProvider);
     final filtered = state.filtered;
+    final uploadState = ref.watch(imageUploadProvider);
+
+    ref.listen<ImageUploadState>(imageUploadProvider, (_, next) {
+      if (next is ImageUploadSuccess) {
+        setState(() => _uploadingProductId = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Imagen del producto actualizada.')),
+        );
+        ref.read(productsAdminProvider.notifier).load();
+        ref.read(imageUploadProvider.notifier).reset();
+      } else if (next is ImageUploadError) {
+        setState(() => _uploadingProductId = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        ref.read(imageUploadProvider.notifier).reset();
+      }
+    });
 
     return Column(
       children: [
@@ -189,6 +212,14 @@ class _ProductsAdminScreenState extends ConsumerState<ProductsAdminScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (_, i) => _ProductAdminCard(
                   product: filtered[i],
+                  isUploading: uploadState is ImageUploadLoading &&
+                      _uploadingProductId == filtered[i].id,
+                  onUploadImage: () {
+                    setState(() => _uploadingProductId = filtered[i].id);
+                    ref
+                        .read(imageUploadProvider.notifier)
+                        .pickAndUploadProductImage(filtered[i].id);
+                  },
                   onToggle: () => ref
                       .read(productsAdminProvider.notifier)
                       .toggleActive(filtered[i].id, !filtered[i].isActive),
@@ -276,6 +307,8 @@ class _ProductAdminCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onRestock;
   final VoidCallback onDelete;
+  final VoidCallback onUploadImage;
+  final bool isUploading;
 
   const _ProductAdminCard({
     required this.product,
@@ -283,6 +316,8 @@ class _ProductAdminCard extends StatelessWidget {
     required this.onEdit,
     required this.onRestock,
     required this.onDelete,
+    required this.onUploadImage,
+    required this.isUploading,
   });
 
   Color _stockColor() {
@@ -303,27 +338,41 @@ class _ProductAdminCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 54,
-                  height: 54,
-                  child: product.imageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(
-                            color: AppColors.surface2,
-                            child: const Center(child: Text('📦')),
-                          ),
-                        )
-                      : Container(
-                          color: AppColors.surface2,
-                          child: const Center(
-                            child: Text('📦', style: TextStyle(fontSize: 22)),
-                          ),
+              Stack(
+                children: [
+                  ProductImage(
+                    imageUrl: product.imageUrl,
+                    width: 54,
+                    height: 54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  Positioned.fill(
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: isUploading ? null : onUploadImage,
+                        child: Center(
+                          child: isUploading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.photo_camera_outlined,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                         ),
-                ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -6,11 +6,35 @@ import '../../../theme/app_colors.dart';
 import '../../providers/users_admin_provider.dart';
 import '../../widgets/user_form.dart';
 
-class UsersAdminScreen extends ConsumerWidget {
+class UsersAdminScreen extends ConsumerStatefulWidget {
   const UsersAdminScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UsersAdminScreen> createState() => _UsersAdminScreenState();
+}
+
+class _UsersAdminScreenState extends ConsumerState<UsersAdminScreen> {
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(() {
+      if (_scrollCtrl.position.pixels >=
+          _scrollCtrl.position.maxScrollExtent - 150) {
+        ref.read(usersAdminProvider.notifier).loadMore();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(usersAdminProvider);
     final filtered = state.filtered;
     final tt = Theme.of(context).textTheme;
@@ -41,8 +65,8 @@ class UsersAdminScreen extends ConsumerWidget {
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () =>
-                            ref.read(usersAdminProvider.notifier).load(),
+                        onPressed:
+                            ref.read(usersAdminProvider.notifier).refresh,
                         icon: const Icon(
                           Icons.refresh_rounded,
                           color: AppColors.textSecondary,
@@ -102,12 +126,12 @@ class UsersAdminScreen extends ConsumerWidget {
         Expanded(
           child: Builder(
             builder: (_) {
-              if (state.isLoading) {
+              if (state.isLoading && state.users.isEmpty) {
                 return const Center(
                   child: CircularProgressIndicator(color: AppColors.accent),
                 );
               }
-              if (state.error != null) {
+              if (state.error != null && state.users.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -118,8 +142,8 @@ class UsersAdminScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       ElevatedButton(
-                        onPressed: () =>
-                            ref.read(usersAdminProvider.notifier).load(),
+                        onPressed:
+                            ref.read(usersAdminProvider.notifier).refresh,
                         child: const Text('Reintentar'),
                       ),
                     ],
@@ -147,21 +171,35 @@ class UsersAdminScreen extends ConsumerWidget {
               }
 
               return ListView.separated(
+                controller: _scrollCtrl,
                 padding: const EdgeInsets.all(16),
-                itemCount: filtered.length,
+                itemCount: filtered.length + (state.isLoadingMore ? 1 : 0),
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, i) => _UserCard(
-                  user: filtered[i],
-                  onToggleStaff: () => ref
-                      .read(usersAdminProvider.notifier)
-                      .toggleStaff(filtered[i].id, !filtered[i].isStaff),
-                  onToggleActive: () => ref
-                      .read(usersAdminProvider.notifier)
-                      .toggleActive(filtered[i].id),
-                  onEdit: () =>
-                      showUserForm(context, ref, initial: filtered[i]),
-                  onDelete: () => _confirmDelete(context, ref, filtered[i]),
-                ),
+                itemBuilder: (_, i) {
+                  if (i >= filtered.length) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(
+                          color: AppColors.accent,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  }
+                  return _UserCard(
+                    user: filtered[i],
+                    onToggleStaff: () => ref
+                        .read(usersAdminProvider.notifier)
+                        .toggleStaff(filtered[i].id, !filtered[i].isStaff),
+                    onToggleActive: () => ref
+                        .read(usersAdminProvider.notifier)
+                        .toggleActive(filtered[i].id),
+                    onEdit: () =>
+                        showUserForm(context, ref, initial: filtered[i]),
+                    onDelete: () => _confirmDelete(context, ref, filtered[i]),
+                  );
+                },
               );
             },
           ),

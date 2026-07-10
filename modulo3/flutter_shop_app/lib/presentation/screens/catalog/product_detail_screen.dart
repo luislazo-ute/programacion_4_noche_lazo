@@ -1,6 +1,5 @@
 // lib/presentation/screens/catalog/product_detail_screen.dart
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,8 +7,11 @@ import '../../../core/config/app_config.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/model/product.dart';
 import '../../../theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/catalog_provider.dart';
+import '../../providers/image_upload_provider.dart';
+import '../../widgets/product_image.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final int productId;
@@ -74,44 +76,58 @@ class _ProductDetailContentState extends ConsumerState<_ProductDetailContent> {
     final subtotal = p.price * _quantity;
     final taxAmount = subtotal * AppConfig.taxRate;
     final totalWithTax = subtotal + taxAmount;
+    final isStaff = ref.watch(authProvider).isStaff;
+    final uploadState = ref.watch(imageUploadProvider);
+
+    ref.listen<ImageUploadState>(imageUploadProvider, (_, next) {
+      if (next is ImageUploadSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Imagen del producto actualizada.')),
+        );
+        ref.read(catalogProvider.notifier).refresh();
+        ref.invalidate(productDetailProvider(p.id));
+        ref.read(imageUploadProvider.notifier).reset();
+      } else if (next is ImageUploadError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        ref.read(imageUploadProvider.notifier).reset();
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: Text(p.name, overflow: TextOverflow.ellipsis)),
+      floatingActionButton: isStaff
+          ? FloatingActionButton.extended(
+              onPressed: uploadState is ImageUploadLoading
+                  ? null
+                  : () => ref
+                      .read(imageUploadProvider.notifier)
+                      .pickAndUploadProductImage(p.id),
+              icon: uploadState is ImageUploadLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.photo_camera),
+              label: const Text('Cambiar imagen'),
+            )
+          : null,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
               children: [
-                Container(
-                  height: 240,
+                ProductImage(
+                  imageUrl: p.imageUrl,
                   width: double.infinity,
-                  color: AppColors.borderLight,
-                  child: p.imageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: p.imageUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            color: AppColors.surface2,
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.accent,
-                              ),
-                            ),
-                          ),
-                          errorWidget: (_, __, ___) => const ColoredBox(
-                            color: AppColors.surface2,
-                            child: Center(
-                              child: Text('📦', style: TextStyle(fontSize: 72)),
-                            ),
-                          ),
-                        )
-                      : const ColoredBox(
-                          color: AppColors.surface2,
-                          child: Center(
-                            child: Text('📦', style: TextStyle(fontSize: 72)),
-                          ),
-                        ),
+                  height: 240,
+                  borderRadius: BorderRadius.zero,
                 ),
                 if (outOfStock)
                   Positioned(
