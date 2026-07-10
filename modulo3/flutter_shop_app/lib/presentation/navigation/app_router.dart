@@ -11,10 +11,13 @@ import '../screens/admin/dashboard_screen.dart';
 import '../screens/admin/order_admin_detail_screen.dart';
 import '../screens/admin/orders_admin_screen.dart';
 import '../screens/admin/products_admin_screen.dart';
+import '../screens/admin/send_notification_screen.dart';
 import '../screens/admin/users_admin_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/profile_screen.dart';
 import '../screens/auth/register_screen.dart';
+import '../screens/auth/reset_password_confirm_screen.dart';
 import '../screens/cart/cart_screen.dart';
 import '../screens/catalog/catalog_screen.dart';
 import '../screens/catalog/home_screen.dart';
@@ -34,7 +37,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (auth.isChecking) return null;
 
-      final isAuthRoute = location == '/login' || location == '/register';
+      final isAuthRoute = location == '/login' ||
+          location == '/register' ||
+          location == '/forgot-password' ||
+          location == '/reset-password-confirm';
 
       if (!auth.isAuthenticated && !isAuthRoute) return '/login';
       if (auth.isAuthenticated && isAuthRoute) {
@@ -43,6 +49,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.isAuthenticated &&
           !auth.isStaff &&
           location.startsWith('/admin')) {
+        return '/';
+      }
+      if (auth.isAuthenticated &&
+          !auth.isStaff &&
+          location == '/send-notification') {
         return '/';
       }
 
@@ -56,6 +67,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (_, __) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, __) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password-confirm',
+        builder: (_, __) => const ResetPasswordConfirmScreen(),
+      ),
+      GoRoute(
+        path: '/send-notification',
+        builder: (_, __) => const SendNotificationScreen(),
       ),
       ShellRoute(
         builder: (_, __, child) => PublicShell(child: child),
