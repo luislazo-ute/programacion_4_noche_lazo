@@ -1,0 +1,200 @@
+// lib/presentation/providers/catalog_provider.dart
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../data/remote/api/category_remote_datasource.dart';
+import '../../data/remote/api/product_remote_datasource.dart';
+import '../../domain/model/category.dart';
+import '../../domain/model/product.dart';
+
+class CatalogState {
+  final List<Product> products;
+  final List<Category> categories;
+  final bool isLoading;
+  final bool isLoadingMore;
+  final String? error;
+  final int total;
+  final bool hasMore;
+  final int page;
+  final String? search;
+  final int? categoryId;
+  final double? minPrice;
+  final double? maxPrice;
+  final String? ordering;
+
+  const CatalogState({
+    this.products = const [],
+    this.categories = const [],
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.error,
+    this.total = 0,
+    this.hasMore = false,
+    this.page = 1,
+    this.search,
+    this.categoryId,
+    this.minPrice,
+    this.maxPrice,
+    this.ordering,
+  });
+
+  CatalogState copyWith({
+    List<Product>? products,
+    List<Category>? categories,
+    bool? isLoading,
+    bool? isLoadingMore,
+    String? error,
+    int? total,
+    bool? hasMore,
+    int? page,
+    Object? search = _unset,
+    Object? categoryId = _unset,
+    Object? minPrice = _unset,
+    Object? maxPrice = _unset,
+    Object? ordering = _unset,
+  }) =>
+      CatalogState(
+        products: products ?? this.products,
+        categories: categories ?? this.categories,
+        isLoading: isLoading ?? this.isLoading,
+        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+        error: error,
+        total: total ?? this.total,
+        hasMore: hasMore ?? this.hasMore,
+        page: page ?? this.page,
+        search: search == _unset ? this.search : search as String?,
+        categoryId: categoryId == _unset ? this.categoryId : categoryId as int?,
+        minPrice: minPrice == _unset ? this.minPrice : minPrice as double?,
+        maxPrice: maxPrice == _unset ? this.maxPrice : maxPrice as double?,
+        ordering: ordering == _unset ? this.ordering : ordering as String?,
+      );
+
+  static const Object _unset = Object();
+}
+
+class CatalogNotifier extends StateNotifier<CatalogState> {
+  final ProductRemoteDatasource _productDs;
+  final CategoryRemoteDatasource _categoryDs;
+
+  CatalogNotifier(this._productDs, this._categoryDs)
+      : super(const CatalogState()) {
+    loadCategories();
+    load();
+  }
+
+  Future<void> loadCategories() async {
+    try {
+      final cats = await _categoryDs.getCategories();
+      state = state.copyWith(categories: cats);
+    } catch (_) {
+      // Las categorías son auxiliares; si fallan, el catálogo puede seguir.
+    }
+  }
+
+  Future<void> load({bool reset = true}) async {
+    final s = state;
+    final page = reset ? 1 : s.page;
+
+    if (reset) {
+      state = s.copyWith(isLoading: true, error: null, page: 1);
+    } else {
+      if (s.isLoadingMore || !s.hasMore) return;
+      state = s.copyWith(isLoadingMore: true);
+    }
+
+    try {
+      final result = await _productDs.getProducts(
+        page: page,
+        pageSize: 12,
+        search: s.search,
+        category: s.categoryId,
+        priceMin: s.minPrice,
+        priceMax: s.maxPrice,
+        ordering: s.ordering,
+        isActive: true,
+      );
+      state = state.copyWith(
+        products:
+            reset ? result.results : [...state.products, ...result.results],
+        total: result.count,
+        hasMore: result.next != null,
+        isLoading: false,
+        isLoadingMore: false,
+        page: page + 1,
+        error: null,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        isLoadingMore: false,
+        error: e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
+
+  void setSearch(String? value) {
+    state = state.copyWith(search: value?.isEmpty == true ? null : value);
+    load();
+  }
+
+  void setCategory(int? id) {
+    state = state.copyWith(categoryId: id);
+    load();
+  }
+
+  void setPriceRange(double? min, double? max) {
+    state = state.copyWith(minPrice: min, maxPrice: max);
+    load();
+  }
+
+  void setOrdering(String? value) {
+    state = state.copyWith(ordering: value);
+    load();
+  }
+
+  void applyFilters({
+    int? categoryId,
+    String? ordering,
+    double? minPrice,
+    double? maxPrice,
+  }) {
+    state = state.copyWith(
+      categoryId: categoryId,
+      ordering: ordering,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+    );
+    load();
+  }
+
+  void clearFilters() {
+    state = state.copyWith(
+      search: null,
+      categoryId: null,
+      minPrice: null,
+      maxPrice: null,
+      ordering: null,
+    );
+    load();
+  }
+
+  void loadMore() => load(reset: false);
+  Future<void> refresh() => load();
+}
+
+final catalogProvider =
+    StateNotifierProvider<CatalogNotifier, CatalogState>((ref) {
+  return CatalogNotifier(
+    ref.watch(productDatasourceProvider),
+    ref.watch(categoryDatasourceProvider),
+  );
+});
+
+final categoriesProvider = Provider<AsyncValue<List<Category>>>((ref) {
+  final state = ref.watch(catalogProvider);
+  return AsyncValue.data(state.categories);
+});
+
+final productDetailProvider = FutureProvider.family<Product, int>((ref, id) {
+  return ref.watch(productDatasourceProvider).getProduct(id);
+});
